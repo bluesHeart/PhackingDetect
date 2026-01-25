@@ -1,0 +1,14 @@
+name: phackingdetect
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - matplotlib
+  - statsmodels
+  - requests
+  - beautifulsoup4
+  - pillow
+  - pymupdf
+  - pdfplumber

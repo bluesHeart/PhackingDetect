@@ -1,0 +1,17 @@
+# One Crossref bibliographic query per line.
+# Used by:
+#   - scripts/build_ssrn_corpus.py --queries-file configs/queries.txt
+#   - scripts/run_offline_pipeline.py --queries-file configs/queries.txt --steps build,...
+#
+# Notes:
+# - The build script filters to container-title: "SSRN Electronic Journal".
+# - Keep queries broad, then down-sample with --sample-n if needed.
+
+asset pricing
+expected returns
+return predictability
+factor model
+publication bias
+multiple testing
+specification searching
+p-hacking

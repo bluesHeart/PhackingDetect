@@ -1,0 +1,45 @@
+# Python / virtualenv
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Big binaries (PDFs are re-downloaded on the GPU machine)
+*.pdf
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Reproducible but large artifacts
+analysis*/
+reports/
+papers_to_check/
+annotations/
+
+# Paper PDFs/derived markdown (copyrighted / re-downloadable)
+papers_pdf/
+papers_md/
+
+# Corpora: keep id lists + query configs, ignore heavy artifacts
+corpus*/
+!corpus_large/
+!corpus_large/ssrn_ids.txt
+!corpus_large/manifest.csv
+!corpus_large/manifest.jsonl
+corpus*/pdfs/
+corpus*/meta/
+corpus*/tests/
+corpus*/_cache_*/
+corpus*/features.csv
+corpus*/summary.md
+
+# Local scratch
+corpus_debug/
+corpus_test_dl*/

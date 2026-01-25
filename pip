@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PIP="$ROOT/.venv/bin/pip"
+
+if [[ ! -x "$PIP" ]]; then
+  echo "Missing venv pip: $PIP" >&2
+  echo "Create the venv first (see ./py). " >&2
+  exit 1
+fi
+
+exec "$PIP" "$@"
+
