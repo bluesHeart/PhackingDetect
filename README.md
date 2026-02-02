@@ -1,164 +1,174 @@
-# PhackingDetect：多模态 within-paper p-hacking 风险诊断（Finance）
+# PhackingDetect — within-paper selective-reporting / p-hacking risk screening agent
 
-本仓库是一个**论文原型项目**：把“p-hacking/选择性报告/多重检验/规格搜索”等问题，落到可规模化的 PDF 证据抽取与可复现的风险测度上。
+PhackingDetect is an **end-to-end, evidence-grounded LLM workflow** that takes **one economics/finance paper PDF** and produces a **referee-style** selective-reporting / p-hacking **risk screening** report.
 
-你可以把它理解为两条线并行推进：
+- **Input:** a PDF (`--pdf path/to/paper.pdf`)
+- **Output (inside the repo):**
+  - `reports/<paper_slug>__<hash>/diagnostic.md` (English, LLM-written)
+  - `reports/<paper_slug>__<hash>/diagnostic_metrics.json` (machine-readable metrics)
+  - `reports/<paper_slug>__<hash>/diagnostic.json` (full payload + provenance)
+  - `reports/<paper_slug>__<hash>/llm_logs/<run_id>/` (prompts + raw responses)
 
-1. **离线可规模化（可复现统计层）**：对 SSRN PDF 语料做表格抽取，重建 `(coef,paren)→t→p`（括号可能是标准误或 t-stat），计算阈值附近 caliper/bunching、简化 p-curve、关键词暴露度等，输出 paper-level 的 `offline_risk_score` 与一组可审计的中间产物。
-2. **单篇多模态审计（证据链）**：对某一篇论文，用“少量关键页的图像阅读 + anchors（页码+可指认短语/表名）”生成可复核的风险诊断报告（可选接入 OpenAI-compatible LLM；无 LLM 时自动降级为启发式/文本抽取模式）。
-
-研究写作与定位建议见：`jf_p_hacking_agent_paper_plan.md`。
-
----
-
-## 目录结构（重要产物）
-
-- `scripts/`：所有可运行脚本（入口都在这里）
-  - `run_offline_pipeline.py`：一键跑完 SSRN→metrics→stylized-facts（含日志与 config 记录）
-  - `build_ssrn_corpus.py`：构建 SSRN PDF 语料（Crossref 查询/SSRN id 列表→下载+manifest）
-  - `extract_within_paper_metrics.py`：从 PDF 表格抽取 `(coef,paren)` 并重建 `t/p`（推断括号语义），输出 `features.csv`、逐条 test JSONL 与 `tests/*.meta.json`
-  - `generate_stylized_facts.py` / `test_level_stylized_facts.py`：生成描述性事实与图
-  - `fetch_openalex_works.py` / `map_published_versions_openalex_search.py` / `build_panel_with_openalex.py`：OpenAlex 元数据与“预印本→已发表版本”映射
-  - `p_hacking_agent.py`：单篇多模态审计（LLM 可选）
-  - `make_*_audit_tasks.py` / `score_*_audit*.py`：人工审计任务与评分（measurement validity / mapping validity）
-- `corpus/`：语料与抽取结果（可重建）
-  - `manifest.csv` / `manifest.jsonl`：SSRN id→PDF/元信息清单
-  - `pdfs/`：下载的 SSRN PDF
-  - `meta/`：SSRN 抽象页元信息缓存
-  - `features.csv`：每篇论文的离线特征与 `offline_risk_score`
-  - `tests/*.jsonl`：逐条抽取的 test（含 page/table/cell bbox、t/p 近似等）
-- `analysis/`：分析输出（可重建）
-  - `paper_panel.csv`：paper-level 面板（manifest+features join）
-  - `stylized_facts.md` / `test_level_stylized_facts.md`：原型风格化事实
-  - `pipeline_runs/<timestamp>/config.json` + `run.log`：每次 pipeline 的可复现记录
-- `reports/`：单篇审计 agent 的输出（默认 `reports/p_hacking/<paper>__<hash>/`）
-- `annotations/`：人工审计标注与报告（validation 用）
-
-仓库里还包含不同样本规模的“快照输出”（例如 `corpus_300/`、`analysis_300/`、`corpus_800/`、`analysis_800/`、`corpus_large/` 等），用于对比与调试。
+This is a **risk screening tool**, not a misconduct detector: it does **not** infer intent. It tries to surface **where** risk signals appear (table/figure + page + best-effort row/col) and **why** they matter, grounded in the method references listed in `p_hacking_agent_methodology.md`.
 
 ---
 
-## Python 环境（建议）
+## What this is / isn’t
 
-本项目统一使用仓库根目录下的 venv：`.venv/`。
+**This is**
 
-- Python：`3.10+`
-- 依赖：见 `requirements.txt`（或使用 `environment.yml` 创建 conda 环境）
+- A **within-paper** selective-reporting / p-hacking **risk screening** assistant.
+- A workflow that produces **audit-ready** outputs (page + anchors + logs), so readers can quickly verify or reject claims.
+- An open-source engineering artifact that operationalizes well-known diagnostics from the methods literature.
 
-使用 venv：
+**This is not**
+
+- A tool that “proves p-hacking” or detects misconduct/intent.
+- A corpus-level estimator of publication bias or population stylized facts.
+- A substitute for expert judgement or for reading and checking the paper.
+- A guarantee of correctness: PDF parsing and LLM reading can be wrong; treat outputs as triage.
+
+If you want to share results publicly, read `docs/RESPONSIBLE_USE.md` first.
+
+## Output format (what you get)
+
+The main machine-readable artifact is `diagnostic_metrics.json`, which is designed to be easy to parse and visualize.
+
+Minimal schema (illustrative):
+
+```json
+{
+  "generated_at": "YYYY-MM-DD HH:MM:SS",
+  "paper": {
+    "title": "…",
+    "overall_risk_score_0_100": 0,
+    "overall_risk_level": "Low | Moderate | High",
+    "top_concerns": ["…"],
+    "key_artifacts": ["Figure 5", "Table 7"]
+  },
+  "artifacts": [
+    {
+      "kind": "figure | table",
+      "id": "Figure 5",
+      "pages": [47, 48],
+      "risk_score_0_100": 0,
+      "risk_level": "Low | Moderate | High",
+      "has_numeric_evidence": true,
+      "evidence_counts": {
+        "n_tests": 0,
+        "p_005_just_sig": 0,
+        "p_005_just_nonsig": 0,
+        "t_196_just_below": 0,
+        "t_196_just_above": 0,
+        "t_exact_2_count": 0,
+        "sig_p_le_0_05": 0,
+        "sig_p_le_0_10": 0,
+        "pcurve_low_half": 0,
+        "pcurve_high_half": 0,
+        "pcurve_right_skew_z": 0
+      },
+      "signals": ["…"],
+      "flagged_entries": [
+        {
+          "page": 47,
+          "row": "…",
+          "col": "…",
+          "coef": 0.0,
+          "se_paren": 0.0,
+          "abs_t": 0.0,
+          "p_approx_2s": 0.0
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Quickstart
+
+### 1) Create a local venv (recommended)
 
 ```bash
-python3 -m venv --without-pip .venv
-python3 - <<'PY'
-import urllib.request
-urllib.request.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')
-print('downloaded /tmp/get-pip.py')
-PY
-.venv/bin/python /tmp/get-pip.py
+python3 -m venv .venv
+.venv/bin/pip install -U pip
 .venv/bin/pip install -r requirements.txt
 ```
 
-> 说明：`PyMuPDF`/`pdfplumber` 用于 PDF 文本与表格抽取；`pandas/matplotlib/statsmodels` 用于面板、图形与回归。
-
-使用 conda（可选）：
+If `python3 -m venv` fails on Ubuntu/Debian, install the venv package:
 
 ```bash
-conda env create -f environment.yml
-conda activate phackingdetect
+sudo apt-get update && sudo apt-get install -y python3-venv
 ```
 
-不想 activate 的话，可以直接用仓库自带 wrapper：
+This repo includes wrappers that always use the repo venv:
+
+- `./py` → runs `.venv/bin/python`
+- `./pip` → runs `.venv/bin/pip`
+
+### 2) Configure the LLM (strict env vars)
+
+PhackingDetect uses an **OpenAI-compatible chat API** and reads **only** these variables:
+
+- `SKILL_LLM_API_KEY`
+- `SKILL_LLM_BASE_URL`
+- `SKILL_LLM_MODEL`
+
+Your chosen model must support **image inputs** (the agent reads rendered PDF pages as JPGs). If you only have a text-only model or do not want API calls, use `--offline`.
+
+Example:
 
 ```bash
-./py scripts/run_offline_pipeline.py --help
-./pip list
+export SKILL_LLM_API_KEY="..."
+export SKILL_LLM_BASE_URL="https://your-openai-compatible-endpoint/v1"
+export SKILL_LLM_MODEL="your-model-name"
 ```
 
----
+You can also copy `.env.example` to `.env` and `source .env` (do not commit `.env`).
 
-## 一键离线 Pipeline（推荐入口）
+If you do not want to call an LLM, run with `--offline` (heuristic mode).
 
-最常用入口：`scripts/run_offline_pipeline.py`。它会把每次运行的命令、stdout/stderr、参数与关键环境变量写入 `analysis/pipeline_runs/`。
-
-### 1) 基于已有语料，重算特征与分析
-
-```bash
-./py scripts/run_offline_pipeline.py \
-  --corpus-dir corpus \
-  --analysis-dir analysis \
-  --steps extract,extraction_quality,summarize,panel,stylized,test_level,dedupe,half_synth
-```
-
-### 2) 从 Crossref/SSRN 拉取语料并下载 PDF（需要网络）
-
-准备一个 queries 文件（每行一个 Crossref query，例如 `asset pricing`、`expected returns`）。可参考 `configs/queries.example.txt`，复制为 `configs/queries.txt`，然后：
-
-```bash
-export CROSSREF_MAILTO="you@example.com"   # 建议填写，避免被限流
-./py scripts/run_offline_pipeline.py \
-  --corpus-dir corpus \
-  --analysis-dir analysis \
-  --queries-file configs/queries.txt \
-  --download \
-  --steps build,extract,extraction_quality,summarize,panel,stylized,test_level,dedupe
-```
-
-也可以直接给 SSRN id 列表（见 `scripts/build_ssrn_corpus.py --help`）。
-
----
-
-## OpenAlex 扩展（可选：外部效度/版本映射）
-
-OpenAlex 相关脚本会读取 `OPENALEX_MAILTO`（或回退到 `CROSSREF_MAILTO`）：
-
-```bash
-export OPENALEX_MAILTO="you@example.com"
-./py scripts/run_offline_pipeline.py \
-  --corpus-dir corpus \
-  --analysis-dir analysis \
-  --steps openalex_works,pub_map,openalex_panel,predictive_validity,pub_map_audit_tasks
-```
-
-主要产物：
-
-- `analysis/openalex_works.csv`
-- `analysis/paper_openalex_publication_map_search.csv`
-- `analysis/paper_panel_with_openalex.csv`
-- `analysis/predictive_validity_openalex*.md`
-- `analysis/publication_map_tasks/` + `analysis/publication_map_labels/` + `analysis/publication_map_audit_report.md`
-
----
-
-## 单篇多模态审计 Agent（可选）
-
-入口：`scripts/p_hacking_agent.py`，默认输出到 `reports/p_hacking/`，并保存完整的 LLM 调用日志（prompt/response/raw/error）。
+### 3) Run the agent on one PDF
 
 ```bash
 ./py scripts/p_hacking_agent.py --pdf "path/to/paper.pdf"
 ```
 
-LLM 通过 OpenAI-compatible API（可选）：
+Optional flags:
 
-- `SKILL_LLM_API_KEY`（或 `OPENAI_API_KEY`）
-- `SKILL_LLM_BASE_URL`
-- `SKILL_LLM_MODEL`
-
-不配置 LLM 也能运行：会自动降级为离线启发式模式（或显式 `--offline`），并输出保守的“建议复核点”。
-
----
-
-## 复核与人工标注（可选：validation）
-
-- 人工审计任务（paper-level 红旗标注）：`scripts/make_audit_tasks.py` → `annotations/tasks/` + `annotations/labels/`
-- 标注评分/一致性报告：`scripts/score_human_audit_labels.py` → `annotations/audit_report.md`
-- 抽取准确性验证（cell-level snippets，含括号语义 se/t）：`scripts/make_extraction_audit_tasks.py` + `scripts/score_extraction_audit.py`
-- （可选）用视觉 LLM 做一轮快速“代标注/triage”（不替代真人）：`scripts/llm_label_extraction_audit.py`
-- 版本映射验证：`scripts/make_publication_mapping_audit_tasks.py` + `scripts/score_publication_mapping_audit.py`
+- `--out-dir reports/p_hacking` (base output directory)
+- `--offline` (no LLM calls)
+- `--force` (ignore cached outputs)
+- `--force-metrics` / `--force-report` (expert mode rebuilds)
 
 ---
 
-## 关键方法与资料
+## How to audit a report (recommended)
 
-- 多模态审计方法与引用来源：`p_hacking_agent_methodology.md`
-- “方法论文”逐篇精华总结（LLM 生成）：`p_hacking_detection_methods.md`（生成脚本：`scripts/summarize_p_hacking_methods.py`）
-- 论文链接与资料：`论文链接.md`
+PhackingDetect is designed to be **falsifiable**. When you receive `diagnostic.md`:
+
+1) For each flagged item, note the **page number** and the **anchors** (short searchable phrases).
+2) Open the PDF and jump to the cited page; use PDF search to find the anchor(s).
+3) Confirm the anchor is actually near the cited table/figure and matches the described content.
+4) If a claim seems important, check the raw model trace under `llm_logs/<run_id>/` to see what was provided to the model and what it returned.
+
+If the anchors can’t be found, treat the item as a false positive.
+
+## Repo layout (core)
+
+- `scripts/p_hacking_agent.py`: the end-to-end agent (PDF → report)
+- `scripts/extract_within_paper_metrics.py`: offline within-paper test extraction used as numeric evidence
+- `p_hacking_agent_methodology.md`: **the only allowed** method reference list (citations are constrained to this file)
+- `tex/`: a sectioned LaTeX draft (`tex/build/main.tex`) that cites key p-hacking / selective-reporting methods
+- `docs/CONFIGURATION.md`: env vars and offline mode
+- `docs/TROUBLESHOOTING.md`: common setup/runtime issues
+- `docs/FAQ.md`: quick answers for new users
+- `docs/WHY_THIS_WORKS.md`: design rationale and why this is more than an LLM wrapper
+- `docs/RESPONSIBLE_USE.md`: recommended non-accusatory usage
+- `reports/`: generated reports (ignored by git)
+- `trash/`: a local “bucket” for moved research artifacts / corpora / drafts (ignored by git)
+
+---
+
+## License
+
+MIT (see `LICENSE`).

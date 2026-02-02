@@ -1,0 +1,18 @@
+\section{Related Work}
+
+PhackingDetect focuses on \emph{within-paper} screening: it examines a single paper in isolation and flags patterns that warrant scrutiny by a domain expert. This differs from many empirical studies in the p-hacking literature, which typically analyze large corpora of published papers and provide population-level stylized facts or statistical tests. Our goal is to operationalize those diagnostic concepts at the level of a single PDF and to produce an audit-ready report that points to concrete locations in the document.
+
+\paragraph{Threshold-based evidence.}
+Economics-specific evidence on ``bunching'' around conventional thresholds (e.g., $p \approx 0.05$) is documented in \citet{BrodeurLeSangnierZylberberg2016} and \citet{BrodeurCookHeyes2020}. More formal detection methods are developed in \citet{ElliottKudrinWuthrich2022}.
+
+\paragraph{P-curve diagnostics.}
+The p-curve approach (shape restrictions on significant p-values) is introduced and developed by \citet{SimonsohnNelsonSimmons2014a, SimonsohnNelsonSimmons2014b}. In our system, p-curve is treated as a downstream, heavier-weight check rather than a default claim: the agent collects the information needed to justify such analysis (which results are ``in scope'', how many tests are involved, whether the set of tests is plausibly selective), and it recommends p-curve-style follow-ups when appropriate.
+
+\paragraph{Multiple testing and specification search.}
+Multiple testing concerns and recommended higher evidentiary standards in finance appear prominently in \citet{HarveyLiuZhu2015, Harvey2017}. The broader perspective on specification searches is classic in \citet{Leamer1978, Leamer1983}.
+
+\paragraph{Publication bias.}
+Selective publication and reporting biases can mimic p-hacking-like patterns, motivating identification and correction methods such as \citet{AndrewsKasy2019}. Our agent explicitly treats publication bias as an alternative explanation when interpreting within-paper signals.
+
+\paragraph{Operational gap addressed by this project.}
+Across these literatures, a recurring challenge is that diagnostics are often presented as statistical procedures or stylized facts, while day-to-day paper evaluation is a document-centric task: the referee is confronted with a PDF that mixes narrative, tables, figures, and appendices. PhackingDetect bridges this gap by turning method concepts into a structured, evidence-grounded workflow that is (i) anchored to specific artifacts within the paper and (ii) explicit about competing explanations and recommended checks.

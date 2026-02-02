@@ -10,5 +10,9 @@ if [[ ! -x "$PIP" ]]; then
   exit 1
 fi
 
-exec "$PIP" "$@"
+export XDG_CACHE_HOME="$ROOT/.cache"
+export HF_HOME="$ROOT/.cache/huggingface"
+export PIP_CACHE_DIR="$ROOT/.cache/pip"
+mkdir -p "$XDG_CACHE_HOME" "$HF_HOME" "$PIP_CACHE_DIR" 2>/dev/null || true
 
+exec "$PIP" "$@"

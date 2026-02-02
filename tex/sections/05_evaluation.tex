@@ -1,0 +1,57 @@
+\section{Evaluation plan (draft)}
+
+Because the system is intended as an open-source screening tool, evaluation should emphasize \emph{auditability} and \emph{usefulness} rather than a single headline accuracy number. A credible evaluation plan should answer four practical questions: (i) does the report correctly point to the cited evidence, (ii) are the diagnostic rationales grounded in the literature, (iii) does the tool help an expert triage faster, and (iv) what does it cost to run?
+
+\subsection{Evidence-grounding accuracy}
+The primary failure mode for document-level agents is ungrounded claims. We therefore treat evidence correctness as the first-class metric:
+\begin{itemize}
+  \item \textbf{Anchor validity:} does the quoted anchor phrase appear on the claimed page and near the claimed table/figure?
+  \item \textbf{Artifact match:} does the cited table/figure label correspond to the described content?
+  \item \textbf{Numeric spot checks:} when numeric claims are made (e.g., ``borderline $p$''), are they consistent with the artifact?
+\end{itemize}
+These checks can be audited by a reviewer without re-running the entire paper's analysis.
+
+\subsection{Diagnostic usefulness (expert agreement)}
+Even perfectly grounded reports can be unhelpful if they flag irrelevant issues. A natural evaluation is to sample papers and ask domain experts to rate:
+\begin{itemize}
+  \item whether each flagged item is \emph{worth checking};
+  \item whether the proposed follow-up checks are appropriate;
+  \item whether the report correctly distinguishes ``suggestive'' from ``definitive'' evidence.
+\end{itemize}
+We emphasize that disagreement is expected: the tool is a triage assistant, and papers vary widely in norms, settings, and identification strategies.
+
+\subsection{Ablations and robustness}
+To build confidence that the system is not relying on a single brittle heuristic, an evaluation should include ablations:
+\begin{itemize}
+  \item \textbf{Text-only vs. multimodal:} compare evidence grounding when page images are removed.
+  \item \textbf{Page triage sensitivity:} vary the maximum number of analyzed pages and measure changes in detected artifacts.
+  \item \textbf{Diagnostic coverage:} remove one diagnostic module at a time (Table~\ref{tab:diagnostics_summary}) and assess what signals disappear.
+\end{itemize}
+
+\subsection{Cost profile}
+Cost depends on paper length, number of artifacts, and how much context is provided per artifact. A transparent evaluation should report:
+\begin{itemize}
+  \item wall-clock time and number of model calls per paper,
+  \item token usage (prompt/completion) and variance across papers,
+  \item how cost scales with ``expert'' settings (pages and artifacts analyzed).
+\end{itemize}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{p{0.28\linewidth} p{0.62\linewidth}}
+\toprule
+\textbf{Evaluation target} & \textbf{How to measure (auditable)} \\
+\midrule
+Evidence correctness & Manual audit of page + anchor; spot-check a small random sample of flags. \\
+Screening value & Expert ratings of ``worth checking'' and ``good follow-up suggestion''. \\
+Robustness & Ablations over page budget and modality; measure stability of key flags. \\
+Cost & Tokens and wall-clock time per paper under standardized settings. \\
+\bottomrule
+\end{tabular}
+\caption{A practical evaluation checklist for an audit-ready within-paper screening agent.}
+\label{tab:evaluation_checklist}
+\end{table}
+
+\subsection{Reproducibility}
+For an agent that depends on large language models, reproducibility requires engineering choices: fixed decoding parameters where possible, deterministic caching of intermediate steps, and complete logging of prompts and raw responses. The repository is designed to make each report auditable and to allow re-running with the same model endpoint to assess stability.

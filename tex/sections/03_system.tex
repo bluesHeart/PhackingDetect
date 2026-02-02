@@ -1,0 +1,81 @@
+\section{System Overview}
+
+The agent operationalizes ``within-paper'' screening: it evaluates a single paper in isolation, using its own tables/figures, notes, and robustness narrative. The central design goal is \emph{auditability}: the report should allow a reader to quickly verify each claim by locating the cited evidence in the PDF.
+
+\subsection{Scope and definitions}
+We use ``p-hacking'' as a shorthand for a family of selective-reporting behaviors and researcher degrees of freedom that can inflate the share of significant results. The agent does not attempt to infer intent; its output is a \emph{risk screening} document that highlights patterns consistent with common diagnostics from the literature.
+
+\paragraph{Artifact.}
+An \emph{artifact} is a table or figure (including appendix artifacts) that contains empirical results, robustness checks, event-study plots, heterogeneity panels, or other statistical summaries.
+
+\paragraph{Anchor.}
+An \emph{anchor} is a short, searchable phrase tied to the artifact (e.g., ``Table 3: Baseline results'', ``Robustness'', a column header, or a note describing star conventions). Anchors, together with page numbers, are used to ground claims.
+
+\subsection{End-to-end workflow}
+Figure~\ref{fig:pipeline} summarizes the pipeline. The workflow is deliberately modular: evidence extraction produces grounded snippets, diagnostics map those snippets to theory-grounded risk signals, and the report generator enforces a structured inference chain.
+
+\begin{figure}[t]
+\centering
+\setlength{\unitlength}{1mm}
+\begin{picture}(160,38)
+  % boxes
+  \put(0,14){\framebox(22,10){PDF}}
+  \put(30,24){\framebox(38,10){Text extraction}}
+  \put(30,4){\framebox(38,10){Page images}}
+  \put(76,14){\framebox(40,10){Artifact discovery}}
+  \put(124,14){\framebox(34,10){Diagnostics}}
+  \put(124,2){\framebox(34,10){Report \& metrics}}
+
+  % arrows
+  \put(22,19){\vector(1,0){8}}
+  \put(68,29){\vector(1,0){8}}
+  \put(68,9){\vector(1,0){8}}
+  \put(116,19){\vector(1,0){8}}
+  \put(141,14){\vector(0,-1){2}}
+
+  % labels
+  \put(96,27){\makebox(0,0)[c]{tables/figures + anchors}}
+  \put(141,0){\makebox(0,0)[c]{\small audit-ready provenance}}
+\end{picture}
+\caption{End-to-end pipeline of PhackingDetect. The report is grounded in artifact-level evidence (page + anchors) rather than free-form summaries.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Inputs and outputs}
+Input is a PDF. Outputs are:
+\begin{itemize}
+  \item an English diagnostic report (referee-style, risk screening);
+  \item a machine-readable JSON metric payload summarizing detected signals;
+  \item a full JSON bundle containing provenance (pages, anchors, intermediate steps);
+  \item prompt and raw-response logs to enable auditing and reproduction.
+\end{itemize}
+
+\subsection{Evidence extraction}
+The system combines lightweight PDF text extraction with rendered page images. This is important because (i) PDF text extraction can be incomplete or mis-ordered and (ii) tables/figures are often more reliably read from rendered pages than from extracted text.
+
+\paragraph{Page triage.}
+To control cost, the system prioritizes pages likely to contain tables/figures, robustness checks, and statistical evidence (e.g., pages with high numeric density, ``Table'', ``Figure'', ``Robustness'', ``Appendix'' cues). In ``expert'' mode, a language model can further refine this selection by choosing pages that appear most diagnostic given the paper's structure.
+
+\paragraph{Grounding.}
+Every flagged item must include page references and anchors. This design makes the report falsifiable: if an anchor does not locate the claimed evidence, the report is wrong and can be corrected.
+
+\subsection{Lightweight numeric evidence extraction}
+In addition to multimodal reading, the system can extract low-cost numeric evidence from the paper text and table-like structures when available. Examples include:
+\begin{itemize}
+  \item extracting reported $p$-values (e.g., ``$p=0.047$'') and counting values in narrow windows around conventional cutoffs (within-paper ``caliper'' summaries);
+  \item reconstructing approximate test statistics and two-sided $p$-values when coefficient and standard error pairs are present (e.g., $(\hat\beta, \widehat{se}) \mapsto t=\hat\beta/\widehat{se}$);
+  \item summarizing how many tests appear in a table to contextualize multiplicity risk.
+\end{itemize}
+These summaries are not a substitute for corpus-level inference, but they provide (i) an additional cross-check against purely narrative interpretations and (ii) a concrete bridge from within-paper evidence to threshold-based diagnostics emphasized in the literature \citep{BrodeurLeSangnierZylberberg2016, BrodeurCookHeyes2020, ElliottKudrinWuthrich2022}.
+
+\subsection{Artifact-level screening}
+The paper is decomposed into candidate artifacts. For each artifact, the agent applies a small set of diagnostics (Section~\ref{sec:diagnostics}) and records an inference chain:
+\begin{center}
+observation $\rightarrow$ diagnostic $\rightarrow$ why it matters (with citation) $\rightarrow$ plausible alternatives $\rightarrow$ recommended checks.
+\end{center}
+
+\paragraph{Why inference chains.}
+Within-paper p-hacking signals are rarely definitive. The report therefore emphasizes logic and competing explanations: it is acceptable (and expected) for a flag to end with ``uncertain, but worth checking'', provided the evidence and rationale are explicit.
+
+\subsection{Constrained generation and auditability}
+To reduce ``hallucinated'' claims, the system uses constrained generation in multiple places: structured JSON for intermediate steps, low-temperature decoding, required fields (page/anchor), and automated validation of key outputs. All prompts and raw responses are logged, so a reviewer can inspect exactly what evidence the model saw and how it responded.

@@ -1,0 +1,36 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath, amssymb}
+\usepackage[round]{natbib}
+\usepackage[hidelinks]{hyperref}
+
+\graphicspath{{../figures/}}
+\onehalfspacing
+
+\title{PhackingDetect: An End-to-End LLM Workflow for Within-Paper Selective-Reporting Risk Screening}
+\author{PhackingDetect contributors}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We describe an open-source, end-to-end agent that takes a single economics/finance paper PDF and produces an evidence-grounded, referee-style selective-reporting (``p-hacking'') risk screening report. The system is designed as a practical triage tool: it does not infer intent and does not replace formal meta-scientific inference. Instead, it anchors diagnostics to specific tables/figures, pages, and searchable phrases, and it maps each flagged pattern to a clear methodological rationale from the selective-reporting literature.
+\end{abstract}
+
+\input{../sections/01_introduction.tex}
+\input{../sections/02_related_work.tex}
+\input{../sections/03_system.tex}
+\input{../sections/04_diagnostics.tex}
+\input{../sections/05_evaluation.tex}
+\input{../sections/06_limitations.tex}
+\input{../sections/07_conclusion.tex}
+
+\bibliographystyle{apalike}
+\bibliography{../references}
+
+\end{document}

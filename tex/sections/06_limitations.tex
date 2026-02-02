@@ -1,0 +1,12 @@
+\section{Limitations}
+
+First, a within-paper screening tool cannot infer intent and should not be used to accuse misconduct. It can only surface patterns that are \emph{consistent with} selective reporting, specification search, or related forms of selection. Users should treat the output as triage for expert review rather than adjudication.
+
+Second, document understanding is imperfect. PDF parsing and OCR-like reading of rendered pages can fail on scanned documents, low-resolution tables, unusual fonts, multi-column layouts, and appendices. A key design choice in this repository is therefore to include page numbers and anchors so that users can quickly verify (or falsify) each claim.
+
+Third, many diagnostics are suggestive rather than definitive. Near-threshold clustering, multiplicity, and robustness structure are informative cues, but they do not mechanically imply p-hacking. The appropriate response is typically \emph{additional checks} (stronger thresholds, preregistration, multiple-testing correction, out-of-sample validation, or more transparent robustness reporting), not a binary judgement.
+
+Fourth, within-paper screening has a fundamental identification problem: it cannot separate within-paper selection from selection into the published record. Patterns consistent with p-hacking may also be consistent with publication bias or reporting conventions, which motivates careful alternative-explanation language \citep{AndrewsKasy2019}.
+
+\paragraph{Responsible use.}
+The tool is intended to help reviewers and researchers prioritize scrutiny, not to generate accusations. Reports should be phrased in probabilistic, non-accusatory terms (``risk signal'', ``worth checking'') and should always include the cited evidence and recommended follow-up checks.

@@ -1,0 +1,89 @@
+\section{Diagnostics and theoretical basis}
+\label{sec:diagnostics}
+
+The agent's report is constrained to diagnostics with a clear methodological basis. Each diagnostic is used as \emph{risk screening}, not a definitive test. The goal is to make the logic explicit and auditable: (i) what was observed in the paper, (ii) which diagnostic concept it corresponds to, and (iii) why that concept matters according to the literature.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{p{0.22\linewidth} p{0.52\linewidth} p{0.20\linewidth}}
+\toprule
+\textbf{Diagnostic module} & \textbf{Within-paper cue (what the agent looks for)} & \textbf{Method basis} \\
+\midrule
+Near-threshold clustering & Many results that are ``just significant'' (e.g., $p\approx 0.05$ or $|t|\approx 1.96$), especially without commensurate discussion or correction. & \citet{BrodeurLeSangnierZylberberg2016, BrodeurCookHeyes2020, ElliottKudrinWuthrich2022} \\
+Multiplicity risk & Many outcomes, subgroups, mechanisms, or specifications, with little discussion of multiple-testing control or higher thresholds. & \citet{HarveyLiuZhu2015, Harvey2017} \\
+Specification search cues & Evidence that significance is fragile to ad hoc choices (controls, samples, functional form), with selective robustness reporting. & \citet{Leamer1978, Leamer1983} \\
+Publication/reporting bias (alternative) & Patterns consistent with selection that could arise beyond within-paper p-hacking (e.g., selective reporting or publication). & \citet{AndrewsKasy2019} \\
+Downstream p-curve checks & When the set of tests is plausibly selective, recommend p-curve-style follow-up rather than assert it by default. & \citet{SimonsohnNelsonSimmons2014a, SimonsohnNelsonSimmons2014b} \\
+\bottomrule
+\end{tabular}
+\caption{Diagnostics operationalized by the agent and their methodological basis. The agent treats these as screening signals and explicitly discusses competing explanations.}
+\label{tab:diagnostics_summary}
+\end{table}
+
+\subsection{Near-threshold clustering}
+Within-paper concentration of test statistics near conventional cutoffs (e.g., $|t| \approx 1.96$ or $p \approx 0.05$) is a prominent empirical signature discussed in economics \citep{BrodeurLeSangnierZylberberg2016, BrodeurCookHeyes2020} and formalized by detection methods such as \citet{ElliottKudrinWuthrich2022}. Intuitively, if researchers search over specifications or outcomes, the ``best'' results are more likely to land just on the significant side of a threshold.
+
+\begin{figure}[t]
+\centering
+\setlength{\unitlength}{1mm}
+\begin{picture}(120,45)
+  % axes
+  \put(10,8){\line(1,0){100}}
+  \put(10,8){\line(0,1){32}}
+
+  % bars (conceptual)
+  \put(18,8){\rule{8mm}{6mm}}
+  \put(30,8){\rule{8mm}{8mm}}
+  \put(42,8){\rule{8mm}{10mm}}
+  \put(54,8){\rule{8mm}{12mm}}
+  \put(66,8){\rule{8mm}{28mm}} % bunching just below 0.05
+  \put(78,8){\rule{8mm}{9mm}}  % fewer just above 0.05
+  \put(90,8){\rule{8mm}{7mm}}
+  \put(102,8){\rule{8mm}{6mm}}
+
+  % threshold marker
+  \put(76,8){\line(0,1){32}}
+  \put(76,42){\makebox(0,0)[c]{$p=0.05$}}
+  \put(32,2){\makebox(0,0)[c]{smaller $p$}}
+  \put(92,2){\makebox(0,0)[c]{larger $p$}}
+\end{picture}
+\caption{Conceptual illustration of near-threshold clustering: disproportionately many ``just significant'' results just below $p=0.05$ relative to just above. The agent looks for within-paper analogs of this pattern in reported tables/figures.}
+\label{fig:threshold_bunching}
+\end{figure}
+
+\paragraph{Operationalization in the agent.}
+The report flags an artifact when it observes multiple ``borderline'' results (e.g., stars appearing exactly at conventional cutoffs, or test statistics close to the threshold) and when the paper's narrative does not provide a clear reason to expect such a distribution (e.g., pre-specified primary outcomes with appropriate adjustment). When available, the agent supplements visual cues with lightweight within-paper numeric summaries (e.g., counts of extracted $p$-values in narrow bins around $0.05$), which are conceptually aligned with threshold-based diagnostics in \citet{BrodeurLeSangnierZylberberg2016, BrodeurCookHeyes2020}.
+
+\paragraph{Competing explanations and checks.}
+Threshold clustering can arise from rounding, discrete test statistics, standardized reporting conventions, or genuine effects that are small and precisely estimated. The report therefore recommends follow-ups rather than conclusions, such as: checking the full set of outcomes tested, applying multiple-testing correction where appropriate, and verifying whether the set of reported tests corresponds to a pre-specified analysis plan.
+
+\subsection{Multiplicity and garden-of-forking-paths risk}
+When a paper reports many outcomes, subgroups, and alternative specifications, the chance of at least one false positive rises without multiple-testing adjustments. This is emphasized in finance and empirical practice discussions \citep{HarveyLiuZhu2015, Harvey2017}. In within-paper screening, multiplicity risk matters because it changes how ``a few significant findings'' should be interpreted.
+
+\paragraph{Operationalization in the agent.}
+The agent scans for cues of large testing burdens: many columns/outcomes, many heterogeneity splits, many mechanisms, large robustness matrices, and extensive appendix tables. It then checks whether the paper documents any correction (FWER/FDR), a pre-specified primary outcome strategy, or stricter thresholds justified by the testing environment.
+
+\paragraph{Interpretation.}
+The report treats missing correction as a \emph{risk factor}, not a defect. In many settings, authors may reasonably present exploratory evidence; the key issue is whether the interpretation and claims match the inferential environment.
+
+\subsection{Specification search cues}
+Classic concerns about ad hoc model search and fragile inference are articulated in \citet{Leamer1978, Leamer1983}. A within-paper signal of specification searching is that key claims hinge on a narrow set of choices, while alternative plausible choices are unreported or relegated to appendices without discussion.
+
+\paragraph{Operationalization in the agent.}
+The report flags ``fragility'' when it observes: (i) large swings in significance across nearby specifications; (ii) cherry-picked robustness variants (only significant variants highlighted); or (iii) narrative emphasis inconsistent with the overall robustness pattern.
+
+\paragraph{Checks.}
+Recommended checks include transparent disclosure of the considered specification set, robustness summaries that include null results, and (where feasible) preregistered or externally validated specifications.
+
+\subsection{Alternative explanations: publication and reporting bias}
+Patterns that resemble p-hacking can also arise from selective publication/reporting. \citet{AndrewsKasy2019} provides a modern framework for identification and correction. For a single paper, this means that ``too many significant results'' is ambiguous: it could reflect within-paper flexibility, selection into the published record, or both.
+
+\paragraph{Operationalization in the agent.}
+The report explicitly states when alternative explanations are plausible and avoids intent attribution. It recommends framing claims in a way consistent with uncertainty and, when possible, triangulating with external evidence (e.g., replication, pre-analysis plans, or out-of-sample validation).
+
+\subsection{Downstream p-curve checks}
+P-curve methods \citep{SimonsohnNelsonSimmons2014a, SimonsohnNelsonSimmons2014b} provide shape-based diagnostics of evidentiary value. In practice, their interpretation depends on defining the relevant set of tests and understanding how selective that set may be.
+
+\paragraph{Role in this system.}
+Rather than assert a p-curve conclusion by default, the agent treats p-curve as a follow-up that becomes more appropriate when it has collected enough information to define a plausible set of primary tests (e.g., main-table coefficients corresponding to a pre-specified claim). The agent's report therefore records: which tests appear central, which are robustness or exploratory, and how multiplicity might shape p-curve interpretation.

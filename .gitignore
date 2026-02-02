@@ -4,11 +4,14 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+/dist/
+/build/
 
 # OS / editor
 .DS_Store
 .vscode/
 .idea/
+.env
 
 # Big binaries (PDFs are re-downloaded on the GPU machine)
 *.pdf
@@ -43,3 +46,30 @@ corpus*/summary.md
 # Local scratch
 corpus_debug/
 corpus_test_dl*/
+
+# Local caches / model weights
+.cache/
+models/
+tex/build/.texlive-cache/
+
+# Local outputs
+outputs/
+
+# Repo cleanup bucket (local-only)
+trash/
+
+# Local writing (e.g., WeChat articles)
+articles/
+
+# LaTeX build artifacts (we keep `tex/build/main.tex`)
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc

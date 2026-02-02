@@ -1,45 +1,48 @@
-# 多模态 p-hacking 风险诊断智能体：方法与来源
+# Multimodal within-paper p-hacking risk screening agent: methods and sources
 
-本项目的 `scripts/p_hacking_agent.py` 是一个**无需任何 agent 框架**的“篇内（within-paper）p-hacking 风险诊断”脚本。它的核心目标是：以**最小成本**（有限页数的图像阅读 + 轻量文本启发式）最大化发现可疑信号，并把证据落在“页码 + anchors（可指认短语/表名/注释句）”上。
+This repository's `scripts/p_hacking_agent.py` is an end-to-end **within-paper** selective-reporting / p-hacking **risk screening** workflow that intentionally uses **no agent framework**.
 
-## 智能体实际使用的方法（实现层面）
+The core goal is to maximize practical signal-finding at **low cost** (a limited budget of page-image reading + lightweight text heuristics) while keeping outputs **auditable**: evidence must be grounded to **page numbers + anchors** (searchable phrases, table/figure labels, or note sentences).
 
-1) **多模态证据抽取（核心）**  
-   - 同时使用 **PyMuPDF 抽取文本**（可能有错/缺失）与 **PDF 单页渲染图片**（更可靠）。  
-   - LLM 逐页从图片中抽取：表/图名称、显著性星号惯例、临界结果（靠近阈值）、多重检验风险、稳健性/规格搜索痕迹、选择性强调语言，并输出 anchors。
+## What the agent actually does (implementation-level)
 
-2) **“性价比”页面选择（尽量找表和稳健性页）**  
-   - 先用全文文本的启发式特征（数字密度、Table/Robust/p-value 关键词、星号密度等）给页面打分，再让 LLM（若可用）从摘要信息里挑选少量关键页；若 LLM 选择失败则退回纯启发式选页。  
+1) **Multimodal evidence extraction (core)**  
+   - Uses **PyMuPDF** for PDF text extraction (may be noisy) and **page rendering** (often more reliable for tables/figures).  
+   - The LLM extracts, per page/artifact: table/figure names, star conventions, borderline results (near thresholds), multiplicity cues, robustness/specification-search cues, and selective-emphasis language, and emits anchors.
 
-3) **阈值附近异常的低成本近似（caliper/临界贴合的篇内版本）**  
-   - 从全文抽取到的文本中用正则提取 `p=...` / `p<...` 的数值，并统计 `0.05/0.10/0.01` 附近小窗口的左右计数（粗略的阈值附近堆积/缺口信号）。  
-   - 更重要的是：让 LLM 在**表格图片**里直接定位是否存在 “t≈1.96 / p≈0.05 / 星号刚好出现” 的结果并给出 anchors。
+2) **Cost-effective page triage (find tables and robustness pages)**  
+   - Scores pages using heuristic features (numeric density, Table/Robust/p-value keywords, star density).  
+   - Optionally lets the LLM pick a small set of key pages from the page summaries; if that fails, falls back to heuristic selection.
 
-4) **多重检验/多指标/多子样本的“未校正风险”检查**  
-   - 在图片中识别“很多 outcome / 很多列 / 很多异质性 / 很多机制指标”，并检查是否出现 FWER/FDR/更高 t 门槛等校正或事先预注册式约束。  
+3) **Low-cost within-paper “caliper” approximations near thresholds**  
+   - Extracts reported `p=...` / `p<...` patterns from text and summarizes counts near `0.05/0.10/0.01` (a coarse within-paper analog of threshold bunching).  
+   - More importantly, asks the LLM to locate borderline cells directly in **table images** (e.g., “t≈1.96 / p≈0.05 / star just appears”) and provide anchors.
 
-5) **规格搜索/稳健性压力/选择性报告线索（篇内启发式）**  
-   - 重点抓：大量规格切换、样本/控制变量变化导致显著性跳变、只强调显著结果、将零结果移动到附录/在线附录等，并要求 anchors。
+4) **Multiplicity risk checks (many outcomes / many specs / many subsamples)**  
+   - Detects “many outcomes / many columns / many heterogeneity splits / many mechanism proxies” and checks whether the paper documents corrections (FWER/FDR) or higher thresholds / pre-specification constraints.
 
-6) **离线可规模化测度（JF 主实证用的“可复现统计层”原型）**  
-   - 在 `corpus/pdfs/` 上做表格检测与 `(coef,se)→t→p` 重建，并计算：  
-     - 0.05/0.10 附近 caliper 统计（含 z 与 two-sided binomial p-value）；  
-     - |t|≈1.96/1.645 附近的阈值统计；  
-     - 简化版 p-curve 形状统计（显著区间内是否“向 0.05 堆积”）。  
-   - 入口：`scripts/extract_within_paper_metrics.py`（输出 `corpus/features.csv` 与 `corpus/tests/`；用于 `analysis/stylized_facts.md`）。  
+5) **Specification search / selective robustness reporting cues**  
+   - Flags: heavy specification switching; significance that flips with small control/sample changes; selective emphasis of significant variants; null results moved to appendices without discussion; etc., always with anchors.
 
-> 注：该智能体并未在代码里实现“严格的 p-curve 形状检验/完整的发表偏倚结构估计”等重型统计程序；它把这些作为**可复核的后续建议**输出（属于最小成本最大收益策略）。
+6) **Offline scalable evidence layer (reproducible statistics prototype)**  
+   - Detects table-like text, reconstructs `(coef, se) → t → p` when possible, and computes:
+     - caliper summaries near 0.05/0.10 (including simple z / binomial tests),
+     - threshold summaries near |t|≈1.96/1.645,
+     - simplified p-curve shape summaries (e.g., “mass near 0.05” within significant region).
+   - Entry point: `scripts/extract_within_paper_metrics.py`.
 
-## 方法来源（作者-年份）
+> Note: the agent does not implement heavyweight procedures (full p-curve inference, structural publication-bias estimation). Instead, it treats them as **auditable follow-up recommendations** when within-paper signals justify deeper analysis.
 
-智能体的上述模块主要来自以下方法论文/经典论文的可操作思想：
+## Method sources (author–year)
 
-- **阈值附近堆积 / 显著性通胀、以及基于阈值的诊断**： (Brodeur et al., 2016; Brodeur et al., 2020)  
-- **p-curve / p-hacking 的可检验形状限制（作为诊断与后续建议）**： (Elliott et al., 2022)  
-- **p-curve 的显著区间形状诊断（用于 p-curve 模块与简化实现参考）**： (Simonsohn et al., 2014a; Simonsohn et al., 2014b)  
-- **多重检验与更高显著性门槛（因“因子/结果太多”导致假阳性）**： (Harvey et al., 2015; Harvey, 2017)  
-- **发表偏倚识别与校正（用于区分“选择性发表/报告”与 p-hacking）**： (Andrews & Kasy, 2019)  
-- **规格搜索/研究者自由度与推断有效性**： (Leamer, 1978; Leamer, 1983)  
+The modules above are grounded in the following methods literature and classic references:
+
+- **Threshold bunching / inflated significance, and threshold-based diagnostics:** (Brodeur et al., 2016; Brodeur et al., 2020)  
+- **Formal detection of p-hacking (as diagnostic and follow-up):** (Elliott et al., 2022)  
+- **p-curve shape diagnostics (reference for downstream checks):** (Simonsohn et al., 2014a; Simonsohn et al., 2014b)  
+- **Multiple testing and higher evidentiary thresholds:** (Harvey et al., 2015; Harvey, 2017)  
+- **Publication bias identification and correction (alternative explanations):** (Andrews & Kasy, 2019)  
+- **Specification search and researcher degrees of freedom:** (Leamer, 1978; Leamer, 1983)  
 
 ## References (APA, with DOI)
 

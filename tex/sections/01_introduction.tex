@@ -1,0 +1,23 @@
+\section{Introduction}
+
+Empirical economics and finance research often involves a large ``design space'': outcome definitions, samples, control sets, functional forms, and robustness variants. Classic warnings about ad hoc specification searches emphasize that, without discipline, inference can become fragile and difficult to interpret \citep{Leamer1978, Leamer1983}. In modern applied work, these concerns interact with the widespread use of conventional significance cutoffs (e.g., $p<0.05$) and the proliferation of tests in a single paper.
+
+The selective-reporting literature documents systematic patterns consistent with p-hacking or related forms of selection. In economics, ``bunching'' of reported results around conventional thresholds is documented in \citet{BrodeurLeSangnierZylberberg2016} and \citet{BrodeurCookHeyes2020}, and detection methods are developed in \citet{ElliottKudrinWuthrich2022}. In finance, multiple testing and recommended higher evidentiary standards are emphasized by \citet{HarveyLiuZhu2015} and \citet{Harvey2017}. At the same time, within-paper patterns can also arise from alternative mechanisms such as publication and reporting bias \citep{AndrewsKasy2019}.
+
+\paragraph{Problem.}
+Even when method papers provide clear diagnostic concepts, applying them in day-to-day research evaluation is labor intensive: a referee must scan many tables/figures, interpret robustness structure, and separate suggestive cues from definitive evidence. This creates a practical gap between methodological guidance and real-world screening.
+
+\paragraph{Approach.}
+This repository contributes an end-to-end, evidence-grounded workflow---\texttt{PhackingDetect}---that takes a single PDF and produces a referee-style \emph{within-paper} risk screening report. The goal is \emph{not} to attribute intent or misconduct; instead, the system surfaces \emph{where} risk signals appear (table/figure + page + anchors) and \emph{why} they matter under diagnostics grounded in the selective-reporting literature (Section~\ref{sec:diagnostics}).
+
+\paragraph{Contribution.}
+The project is primarily an open-source engineering artifact:
+\begin{itemize}
+  \item \textbf{Evidence-grounded screening:} every flagged claim is tied to a table/figure, page number, and searchable anchor phrases.
+  \item \textbf{Theory mapping:} diagnostics are explicitly linked to well-cited methods papers (e.g., threshold-based evidence, multiplicity, p-curve) rather than free-form speculation.
+  \item \textbf{Auditability:} the pipeline logs prompts and raw model outputs to enable independent review.
+  \item \textbf{Practical cost controls:} the system is designed to triage a paper by focusing on pages rich in tables/figures and robustness content.
+\end{itemize}
+
+\paragraph{Organization.}
+Section~2 reviews related methodological work. Section~3 describes the end-to-end system and how it grounds evidence in the PDF. Section~\ref{sec:diagnostics} details the diagnostic logic and its theoretical basis. Section~5 outlines an evaluation strategy for assessing evidence accuracy and screening value, and Section~6 discusses limitations and responsible use.

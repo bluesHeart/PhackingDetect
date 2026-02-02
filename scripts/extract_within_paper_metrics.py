@@ -40,6 +40,21 @@ def _sha256_file(path: Path, *, max_bytes: int | None = 5_000_000) -> str:
                 remaining -= len(chunk)
     return h.hexdigest()
 
+def _read_ids(path: Path) -> set[str]:
+    ids: set[str] = set()
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        ids.add(s)
+    return ids
+
+
+def _cache_key(*, max_pages_per_paper: int, max_pdf_pages: int | None) -> str:
+    mp = max(1, int(max_pages_per_paper))
+    mpp = f"pdfp{int(max_pdf_pages)}" if max_pdf_pages is not None else "pdfpNone"
+    return f"mp{mp}_{mpp}"
+
 
 def _p_value_regex_hits(text: str) -> list[float]:
     if not text:
@@ -726,6 +741,7 @@ def main() -> int:
         help="Skip PDFs with more than this many pages (guards against books/dissertations in large SSRN pulls).",
     )
     ap.add_argument("--max-pages-per-paper", type=int, default=12, help="Max candidate pages for table parsing.")
+    ap.add_argument("--paper-ids-file", default=None, help="Optional newline-delimited paper_id list to process.")
     ap.add_argument("--limit", type=int, default=None, help="Optional cap on number of PDFs processed (for smoke tests).")
     ap.add_argument("--only-regex", default=None, help="Only process PDFs whose stem matches this regex.")
     ap.add_argument("--force", action="store_true", help="Recompute even if cache exists.")
@@ -741,7 +757,15 @@ def main() -> int:
     cache_dir = corpus_dir / "_cache_features"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
+    filter_ids: set[str] | None = None
+    if args.paper_ids_file:
+        filter_ids = _read_ids(Path(args.paper_ids_file))
+        if not filter_ids:
+            raise SystemExit(f"--paper-ids-file had no ids: {args.paper_ids_file}")
+
     pdfs = sorted(pdf_dir.glob("*.pdf"))
+    if filter_ids is not None:
+        pdfs = [p for p in pdfs if p.stem in filter_ids]
     if args.only_regex:
         try:
             pat = re.compile(str(args.only_regex))
@@ -754,17 +778,40 @@ def main() -> int:
         raise FileNotFoundError(f"No PDFs found in {pdf_dir}")
 
     rows: list[dict[str, Any]] = []
+    cache_key = _cache_key(max_pages_per_paper=int(args.max_pages_per_paper), max_pdf_pages=(int(args.max_pdf_pages) if args.max_pdf_pages is not None else None))
 
     for i, pdf_path in enumerate(pdfs, start=1):
         sha = _sha256_file(pdf_path)
-        cache_path = cache_dir / f"{pdf_path.stem}__{sha[:12]}.json"
+        cache_path = cache_dir / f"{pdf_path.stem}__{sha[:12]}__{cache_key}.json"
+        legacy_cache_path = cache_dir / f"{pdf_path.stem}__{sha[:12]}.json"
         if cache_path.exists() and not args.force:
             try:
                 cached = json.loads(cache_path.read_text(encoding="utf-8"))
             except Exception:
                 cached = None
-            if isinstance(cached, dict) and cached.get("extractor_version") == EXTRACTOR_VERSION:
+            if (
+                isinstance(cached, dict)
+                and cached.get("extractor_version") == EXTRACTOR_VERSION
+                and cached.get("cache_key") == cache_key
+                and int(cached.get("max_pages_per_paper") or 0) == int(args.max_pages_per_paper)
+            ):
                 rows.append(cached)
+                continue
+        if (not cache_path.exists()) and legacy_cache_path.exists() and not args.force:
+            # Backward-compatible cache: older versions used <paper_id>__<sha>.json without the cache_key suffix.
+            try:
+                cached = json.loads(legacy_cache_path.read_text(encoding="utf-8"))
+            except Exception:
+                cached = None
+            if isinstance(cached, dict) and cached.get("extractor_version") == EXTRACTOR_VERSION:
+                cached.setdefault("cache_key", cache_key)
+                cached.setdefault("max_pages_per_paper", int(args.max_pages_per_paper))
+                cached.setdefault("max_pdf_pages", int(args.max_pdf_pages) if args.max_pdf_pages is not None else None)
+                rows.append(cached)
+                try:
+                    cache_path.write_text(json.dumps(cached, ensure_ascii=False, indent=2), encoding="utf-8")
+                except Exception:
+                    pass
                 continue
 
         doc = fitz.open(pdf_path)
@@ -773,6 +820,9 @@ def main() -> int:
             if args.max_pdf_pages is not None and page_count > int(args.max_pdf_pages):
                 feats: dict[str, Any] = {
                     "extractor_version": EXTRACTOR_VERSION,
+                    "cache_key": cache_key,
+                    "max_pages_per_paper": int(args.max_pages_per_paper),
+                    "max_pdf_pages": int(args.max_pdf_pages) if args.max_pdf_pages is not None else None,
                     "paper_id": pdf_path.stem,
                     "pdf_relpath": str(pdf_path.relative_to(corpus_dir)).replace("\\", "/"),
                     "sha256": sha,
@@ -1086,6 +1136,9 @@ def main() -> int:
             try:
                 meta_obj = {
                     "extractor_version": EXTRACTOR_VERSION,
+                    "cache_key": cache_key,
+                    "max_pages_per_paper": int(args.max_pages_per_paper),
+                    "max_pdf_pages": int(args.max_pdf_pages) if args.max_pdf_pages is not None else None,
                     "paper_id": pdf_path.stem,
                     "pdf_relpath": str(pdf_path.relative_to(corpus_dir)).replace("\\", "/"),
                     "generated_at": _now_iso(),
@@ -1115,6 +1168,9 @@ def main() -> int:
 
         feats: dict[str, Any] = {
             "extractor_version": EXTRACTOR_VERSION,
+            "cache_key": cache_key,
+            "max_pages_per_paper": int(args.max_pages_per_paper),
+            "max_pdf_pages": int(args.max_pdf_pages) if args.max_pdf_pages is not None else None,
             "paper_id": pdf_path.stem,
             "pdf_relpath": str(pdf_path.relative_to(corpus_dir)).replace("\\", "/"),
             "sha256": sha,
