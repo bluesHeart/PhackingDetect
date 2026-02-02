@@ -1,5 +1,7 @@
 # PhackingDetect — within-paper selective-reporting / p-hacking risk screening agent
 
+**LLM agent for p-hacking & selective-reporting risk screening in academic PDFs.**
+
 PhackingDetect is an **end-to-end, evidence-grounded LLM workflow** that takes **one economics/finance paper PDF** and produces a **referee-style** selective-reporting / p-hacking **risk screening** report.
 
 - **Input:** a PDF (`--pdf path/to/paper.pdf`)
